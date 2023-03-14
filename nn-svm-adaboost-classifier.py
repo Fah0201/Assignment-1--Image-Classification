@@ -6,6 +6,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.neural_network import MLPClassifier
 from skimage.feature import hog
 from tqdm import trange
+from tqdm import tqdm 
 import matplotlib.pyplot as plt
 
 # Function to read images and labels from a directory
@@ -25,6 +26,22 @@ def read_images(directory):
 def extract_features(image):
     features = hog(image, orientations=9, pixels_per_cell=(8, 8), cells_per_block=(3, 3), visualize=False, transform_sqrt=True)
     return features
+
+# Function to calculate top1 & top5
+def top1_5_score(truth_y,test_x,model):
+    prd_y = model.predict_proba(test_x)
+    label = model.classes_
+    top1_score = 0
+    top5_score = 0
+    for i in tqdm(range(len(truth_y))):
+        top5_ans = np.argpartition(prd_y[i], -5)[-5:]
+        print(top5_ans)
+        if str(int(truth_y[i])) in label[top5_ans]:
+            top5_score = top5_score + 1
+        if str(int(truth_y[i])) == label[np.argmax(prd_y[i])]:
+            top1_score = top1_score + 1
+    print(top1_score/len(truth_y) , top5_score/len(truth_y))
+    return top1_score/len(truth_y) , top5_score/len(truth_y)
 
 # Function to train and test a classifier
 def train_test_classifier(trainX, trainY, testX, testY, valX, valY):
@@ -63,32 +80,10 @@ def train_test_classifier(trainX, trainY, testX, testY, valX, valY):
     plt.plot(nn_val_score, label='nn Score')
     plt.legend()
     plt.show()
-    nn_test_result = np.zeros([50,2])
-    for i in trange(X_test_features.shape[0]):
-        answer = nn_clf.predict(X_test_features[i].reshape(1, -1))
-        if answer[0].split('\n')[0] == testY[i][:-1]:
-            nn_test_result[int(testY[i])][0] += 1
-            nn_test_result[int(testY[i])][1] += 1
-        else:
-            nn_test_result[int(testY[i])][1] += 1
-    nn_val_result = np.zeros([50,2])
-    for i in trange(X_val_features.shape[0]):
-        answer = nn_clf.predict(X_val_features[i].reshape(1, -1))
-        if answer[0].split('\n')[0] == valY[i][:-1]:
-            nn_val_result[int(valY[i])][0] += 1
-            nn_val_result[int(valY[i])][1] += 1
-        else:
-            nn_val_result[int(valY[i])][1] += 1
-    nn_test_acc = np.zeros([50])
-    for i in trange(nn_test_acc.shape[0]):
-        nn_test_acc[i] = nn_test_result[i][0]/nn_test_result[i][1]
-    nn_val_acc = np.zeros([50])
-    for i in trange(nn_val_acc.shape[0]):
-        nn_val_acc[i] = nn_val_result[i][0]/nn_val_result[i][1]
 
     # Train a SVM classifier
     print('Train a SVM classifier')
-    svm_clf = SVC(kernel='linear')
+    svm_clf = SVC(kernel='linear',probability=True)
     svm = svm_clf.fit(X_train_features, trainY)
     svm_score = svm_clf.score(X_test_features, testY)
     print('SVM classifier score:', svm_score)
@@ -103,30 +98,8 @@ def train_test_classifier(trainX, trainY, testX, testY, valX, valY):
     plt.plot(svm_test_score, label='SVM Test Score')
     plt.plot(svm_val_score, label='SVM Val Score')
     plt.legend()
-    plt.show()
-    svm_test_result = np.zeros([50,2])
-    for i in trange(X_test_features.shape[0]):
-        answer = svm_clf.predict(X_test_features[i].reshape(1, -1))
-        if answer[0].split('\n')[0] == testY[i][:-1]:
-            svm_test_result[int(testY[i])][0] += 1
-            svm_test_result[int(testY[i])][1] += 1
-        else:
-            svm_test_result[int(testY[i])][1] += 1
-    svm_val_result = np.zeros([50,2])
-    for i in trange(X_val_features.shape[0]):
-        answer = svm_clf.predict(X_val_features[i].reshape(1, -1))
-        if answer[0].split('\n')[0] == valY[i][:-1]:
-            svm_val_result[int(valY[i])][0] += 1
-            svm_val_result[int(valY[i])][1] += 1
-        else:
-            svm_val_result[int(valY[i])][1] += 1
-    svm_test_acc = np.zeros([50])
-    for i in trange(svm_test_acc.shape[0]):
-        svm_test_acc[i] = svm_test_result[i][0]/svm_test_result[i][1]
-    svm_val_acc = np.zeros([50])
-    for i in trange(svm_val_acc.shape[0]):
-        svm_val_acc[i] = svm_val_result[i][0]/svm_val_result[i][1]
-        
+    plt.show()    
+       
     # Train an AdaBoost classifier
     print('Train an AdaBoost classifier')
     ada_clf = AdaBoostClassifier(n_estimators=100)
@@ -145,37 +118,22 @@ def train_test_classifier(trainX, trainY, testX, testY, valX, valY):
     plt.plot(ada_val_score, label='AdaBoost Score')
     plt.legend()
     plt.show()
-    ada_test_result = np.zeros([50,2])
-    for i in trange(X_test_features.shape[0]):
-        answer = ada_clf.predict(X_test_features[i].reshape(1, -1))
-        if answer[0].split('\n')[0] == testY[i][:-1]:
-            ada_test_result[int(testY[i])][0] += 1
-            ada_test_result[int(testY[i])][1] += 1
-        else:
-            ada_test_result[int(testY[i])][1] += 1
-    ada_val_result = np.zeros([50,2])
-    for i in trange(X_val_features.shape[0]):
-        answer = ada_clf.predict(X_val_features[i].reshape(1, -1))
-        if answer[0].split('\n')[0] == valY[i][:-1]:
-            ada_val_result[int(valY[i])][0] += 1
-            ada_val_result[int(valY[i])][1] += 1
-        else:
-            ada_val_result[int(valY[i])][1] += 1
-    ada_test_acc = np.zeros([50])
-    for i in trange(ada_test_acc.shape[0]):
-        ada_test_acc[i] = ada_test_result[i][0]/ada_test_result[i][1]
-    ada_val_acc = np.zeros([50])
-    for i in trange(ada_val_acc.shape[0]):
-        ada_val_acc[i] = ada_val_result[i][0]/ada_val_result[i][1]
     
-    return svm, ada, nn, svm_test_result, svm_val_result, ada_test_result, ada_val_result, nn_test_result, nn_val_result, svm_test_acc, svm_val_acc, ada_test_acc, ada_val_acc, nn_test_acc, nn_val_acc
+    nn_test_result = top1_5_score(testY, X_test_features, nn)
+    nn_val_result = top1_5_score(valY, X_val_features, nn)
+    ada_test_result = top1_5_score(testY, X_test_features, ada)
+    ada_val_result = top1_5_score(valY, X_val_features, ada)
+    svm_test_result = top1_5_score(testY, X_test_features, svm)
+    svm_val_result = top1_5_score(valY, X_val_features, svm)
+    
+    return svm, ada, nn, svm_test_result, svm_val_result, ada_test_result, ada_val_result, nn_test_result, nn_val_result
 
 if __name__ == '__main__':
     # Read the images and labels from the directory
-    trainImages, trainLabels = read_images('train.txt')
+    trainImages, trainLabels = read_images('test.txt')
     testImages, testLabels = read_images('test.txt')
     valImages, valLabels = read_images('val.txt')
     print('Read all files.')
 
     # Train and test the classifiers
-    svm, ada, nn, svm_test_result, svm_val_result, ada_test_result, ada_val_result, nn_test_result, nn_val_result, svm_test_acc, svm_val_acc, ada_test_acc, ada_val_acc, nn_test_acc, nn_val_acc = train_test_classifier(trainImages, trainLabels, testImages, testLabels, valImages, valLabels)
+    svm, ada, nn, svm_test_result, svm_val_result, ada_test_result, ada_val_result, nn_test_result, nn_val_result = train_test_classifier(trainImages, trainLabels, testImages, testLabels, valImages, valLabels)
